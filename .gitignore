@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.*
+logs/
+tools/postgres/postgresql-*.zip
+tools/postgres/pgsql/
+tools/postgres/data/
+tools/postgres/postgres.log
+tools/kafka/kafka_2.13-4.2.0/
+tools/kafka/*.tgz
+tools/hadoop/bin/
