@@ -20,7 +20,8 @@ LOGGER = logging.getLogger(__name__)
 load_dotenv()
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
-KAFKA_TOPICS = os.getenv("KAFKA_TOPICS", "blood_donations,blood_requests").split(",")
+DONATION_TOPIC = os.getenv("KAFKA_DONATION_TOPIC", "blood_donations")
+KAFKA_TOPICS = [t.strip() for t in os.getenv("KAFKA_TOPICS", "blood_donations,blood_requests").split(",")]
 LOW_STOCK_THRESHOLD = int(os.getenv("LOW_STOCK_THRESHOLD", "10"))
 
 
@@ -44,7 +45,7 @@ def process_event(event: dict, cursor, topic_name: str) -> None:
     hospital_id = event["hospital_id"]
     units = int(event.get("units", 0))
 
-    if topic_name == "blood_donations":
+    if topic_name == DONATION_TOPIC:
         upsert_inventory(cursor, hospital_id, blood_group, units, LOW_STOCK_THRESHOLD)
         insert_transaction(cursor, event, "donation", "received")
         return

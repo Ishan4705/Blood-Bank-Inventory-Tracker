@@ -37,7 +37,7 @@ def load_low_stock(threshold: int) -> pd.DataFrame:
         f"""
         SELECT hospital_id, blood_group, available_units, low_stock_threshold, updated_at
         FROM inventory
-        WHERE available_units <= GREATEST(low_stock_threshold, {threshold})
+        WHERE available_units <= {threshold}
         ORDER BY available_units ASC, blood_group ASC;
         """
     )

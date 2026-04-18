@@ -64,7 +64,7 @@ def read_table(spark: SparkSession, table_name: str):
     )
 
 
-def compute_daily_summary(spark: SparkSession):
+def compute_daily_summary(spark: SparkSession, target_date: str):
     inventory = read_table(spark, "inventory")
     transactions = read_table(spark, "transactions")
 
@@ -74,17 +74,23 @@ def compute_daily_summary(spark: SparkSession):
             spark_sum(col("available_units")).alias("total_units_available"),
             spark_sum(col("expired_units")).alias("total_units_expired"),
         )
-        .withColumn("summary_date", current_date())
+        .withColumn("summary_date", lit(target_date).cast("date"))
     )
 
     donations = (
-        transactions.filter(col("event_type") == "donation")
+        transactions.filter(
+            (col("event_type") == "donation") & 
+            (col("event_timestamp").cast("date") == lit(target_date).cast("date"))
+        )
         .groupBy("blood_group")
         .agg(spark_sum(col("units")).alias("total_units_donated"))
     )
 
     requests = (
-        transactions.filter(col("event_type") == "request")
+        transactions.filter(
+            (col("event_type") == "request") & 
+            (col("event_timestamp").cast("date") == lit(target_date).cast("date"))
+        )
         .groupBy("blood_group")
         .agg(spark_sum(col("units")).alias("total_units_requested"))
     )
@@ -106,7 +112,7 @@ def compute_daily_summary(spark: SparkSession):
     return summary
 
 
-def compute_daily_summary_pandas() -> list[dict]:
+def compute_daily_summary_pandas(target_date: str) -> list[dict]:
     with db_connection(dict_cursor=True) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -121,7 +127,9 @@ def compute_daily_summary_pandas() -> list[dict]:
                 """
                 SELECT event_type, blood_group, units
                 FROM transactions
-                """
+                WHERE DATE(event_timestamp) = %s
+                """,
+                (target_date,)
             )
             transactions_df = pd.DataFrame(cursor.fetchall())
 
@@ -156,7 +164,7 @@ def compute_daily_summary_pandas() -> list[dict]:
 
     summary = available.merge(donations, on="blood_group", how="outer").merge(requests, on="blood_group", how="outer")
     summary = summary.fillna(0)
-    summary["summary_date"] = str(date.today())
+    summary["summary_date"] = target_date
 
     return summary.to_dict(orient="records")
 
@@ -202,17 +210,18 @@ def write_summary_rows(rows: list[dict]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build daily summary from PostgreSQL data")
     parser.add_argument("--date", default=str(date.today()), help="Target summary date")
-    _ = parser.parse_args()
+    args = parser.parse_args()
+    target_date = args.date
 
     spark = None
     rows: list[dict] = []
     try:
         spark = build_spark_session()
-        summary_df = compute_daily_summary(spark)
+        summary_df = compute_daily_summary(spark, target_date)
         rows = [row.asDict() for row in summary_df.collect()]
     except Exception as exc:
         print(f"Spark execution failed ({exc}). Falling back to pandas aggregation.")
-        rows = compute_daily_summary_pandas()
+        rows = compute_daily_summary_pandas(target_date)
     finally:
         if spark is not None:
             spark.stop()
