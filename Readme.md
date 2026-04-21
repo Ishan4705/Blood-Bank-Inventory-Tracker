@@ -261,7 +261,11 @@ psql -U postgres -d blood_bank -f db_setup.sql
 ### 6. Start Kafka
 
 ```bash
-# From the tools/kafka/kafka_2.13-4.2.0 directory
+# Git Bash / bash (recommended on this project)
+cd tools/kafka/kafka_2.13-4.2.0
+./bin/kafka-server-start.sh config/server.properties
+
+# Windows Command Prompt / PowerShell alternative
 bin\windows\kafka-server-start.bat config\server.properties
 ```
 
@@ -288,7 +292,6 @@ python -m backend.app
 # Step 6 — Launch the Streamlit dashboard (default: http://localhost:8501)
 streamlit run scripts/dashboard.py
 ```
-
 ---
 
 ## Environment Variables
